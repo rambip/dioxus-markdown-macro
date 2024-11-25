@@ -1,20 +1,19 @@
 use std::{iter::Peekable, vec};
 use regex::Regex;
 
-use dioxus_rsx::{BodyNode, CallBody, TemplateBody};
+use dioxus_rsx::{BodyNode, TemplateBody, RsxBlock};
 use pulldown_cmark::{Alignment, Event, Options, Parser, Tag};
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::{
     Ident,
     __private::Span,
-    parse_macro_input, parse_quote, parse_str, LitStr,
+    parse_macro_input, parse_quote, parse_str, LitStr, 
 };
 
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
 
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
 use std::{fs, path::PathBuf};
 
 #[proc_macro]
@@ -32,43 +31,69 @@ pub fn md_page(input: TokenStream) -> TokenStream {
     let content = fs::read_to_string(full_path).unwrap();
     let items = extract_items(&content);
 
-    eprintln!("got these items: {:?}", items);
+    let children: Vec<BodyNode> = items
+        .into_iter()
+        .flat_map(|x| x.to_body_nodes())
+        .collect();
+
+    let template_body = TemplateBody::new(children);
 
 
-    quote::quote! {
-        rsx!{ {
-            [
-                #(#items),*
-            ]
-                .into_iter()
-        }
-        }
-    }.into()
+    quote!(
+        #template_body
+    ).into()
 }
 
 fn extract_items(text: &str) -> Vec<Item> {
-    let re = Regex::new(r"(?sU)([a-z]*)\s*\{\{(.*)\}\}").unwrap();
+    let re = Regex::new(r"(?sU)\{\{(.*)\}\}").unwrap();
         
-        // Collect all matches into a vector
-        re.captures_iter(text)
-            .map(|cap| Item::new(&cap[1], &cap[2]))
-            .collect()
+    // Collect all matches into a vector
+    //re.captures_iter(text)
+    //    .map(|cap| Item::new(&cap[1], &cap[2]))
+    //    .collect()    let mut last_end = 0;
+
+    let mut last_end = 0;
+    let mut result = Vec::new();
+
+    for capture in re.captures_iter(&text) {
+        // Add text before the match to outside_texts
+        if let Some(pre_match) = text.get(last_end..capture.get(0).unwrap().start()) {
+            if !pre_match.trim().is_empty() {
+                result.push(Item {
+                    content: pre_match.trim().to_string(),
+                    content_type: ItemType::Md
+                });
+            }
+        }
+        
+        // Add text inside braces as rsx
+        result.push(Item {
+            content: capture[1].to_string(),
+            content_type: ItemType::Rsx,
+        });
+        
+        last_end = capture.get(0).unwrap().end();
+    }
+    
+    // Add any remaining text after last match to outside_texts
+    if last_end < text.len() {
+        if let Some(post_match) = text.get(last_end..) {
+            if !post_match.trim().is_empty() {
+                result.push(Item {
+                    content: post_match.trim().to_string(),
+                    content_type: ItemType::Md
+                });
+            }
+        }
+    }
+    
+    result
 }
 
 #[derive(Debug, PartialEq)]
 enum ItemType {
     Rsx,
     Md,
-}
-
-impl ItemType {
-    fn from_name(name: &str) -> Option<Self> {
-        match name {
-            "md" => Some(Self::Md),
-            "rsx" => Some(Self::Rsx),
-            _ => None,
-        }
-    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -79,42 +104,23 @@ struct Item {
 
 
 impl Item {
-    fn new(identifier: &str, content: &str) -> Self {
-        Self {
-            content: content.to_string(),
-            content_type: ItemType::from_name(identifier).expect("identifier unknown")
-        }
-    }
-}
-
-impl ToTokens for Item {
-    fn to_tokens(&self, tokens: &mut TokenStream2) {
+    fn to_body_nodes(&self) -> Vec<BodyNode> {
         match self.content_type {
-            ItemType::Md => parse_md(&self.content).expect("malformed md").to_tokens(tokens),
+            ItemType::Md => {
+                parse_md(&self.content).expect("malformed md")
+            }
             ItemType::Rsx => {
-                let converted: TemplateBody = parse_str(&self.content).unwrap();
-                converted.to_tokens(tokens)
+                let tokens: TokenStream = &self.content.parse().expect("invalid bracketing");
+                let block = parse_macro_input!(tokens with RsxBlock::parse_children).expect("malformed rsx");
+                block.children
             }
         }
+
     }
 }
 
-//impl Parse for Item {
-//    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-//        let identifier: Ident = input.parse()?;
-//        let content;
-//        syn::braced!(content in input);
-//        let content_str: proc_macro2::TokenStream = content.parse()?;
-//        let is_md = identifier.to_string() == "md";
-//        Ok(Item {
-//            identifier,
-//            content: content_str.to_string(),
-//            is_md,
-//        })
-//    }
-//}
 
-fn parse_md(markdown: &str) -> syn::Result<CallBody> {
+fn parse_md(markdown: &str) -> syn::Result<Vec<BodyNode>> {
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
     options.insert(Options::ENABLE_TABLES);
@@ -133,13 +139,7 @@ fn parse_md(markdown: &str) -> syn::Result<CallBody> {
         rsx_parser.end_node();
     }
 
-    Ok(if rsx_parser.root_nodes.is_empty() {
-        parse_quote! {
-            dioxus_core::prelude::VNode::placeholder()
-        }
-    } else {
-        CallBody::new(TemplateBody::new(rsx_parser.root_nodes))
-    })
+    Ok(rsx_parser.root_nodes)
 }
 
 struct RsxMarkdownParser<'a, I: Iterator<Item = Event<'a>>> {
@@ -592,21 +592,21 @@ mod tests {
 
     #[test]
     fn test_parse(){
-        let content = "md \n {{ \n # title \n }}";
+        let content = "{{}} after";
         let items = extract_items(content);
         assert_eq!(
             items,
-            vec![Item { content: " \n # title \n ".to_string(), content_type: ItemType::Md }]
+            vec![Item {content: "".to_string(), content_type: ItemType::Rsx}, Item { content: "after".to_string(), content_type: ItemType::Md }]
         );
     }
     #[test]
     fn test_parse_multiple(){
-        let content = "md {{}} rsx {{}}";
+        let content = "a {{}}";
         let items = extract_items(content);
         assert_eq!(
             items,
             vec![
-            Item { content: "".to_string(), content_type: ItemType::Md},
+            Item { content: "a".to_string(), content_type: ItemType::Md},
             Item { content: "".to_string(), content_type: ItemType::Rsx},
             ]
         );
@@ -614,26 +614,17 @@ mod tests {
     #[test]
     fn test_macro(){
         let content = r#"
-        md {{ stuff }}
-        rsx {{
+        stuff
+
+        {{
             Link {
                 to: Route::PerfectClearPage { },
                 "Go to Page"
             }
         }}
 
-
         ";
         "#;
-        let items = extract_items(content);
-        eprintln!("{:?}", items);
-        let out = quote!(
-            rsx!{ {
-                [
-                    #(#items),*
-                ].into_iter()
-            }
-            }
-        );
+        let _items = extract_items(content);
     }
 }

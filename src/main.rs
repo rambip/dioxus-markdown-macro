@@ -43,6 +43,7 @@ fn PerfectClearPage() -> Element {
 fn Greet(name: String) -> Element {
     rsx! {
         "hello {name} !"
+        "how are you ?"
     }
 }
 
