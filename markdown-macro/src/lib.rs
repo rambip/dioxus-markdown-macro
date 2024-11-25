@@ -596,18 +596,18 @@ mod tests {
         let items = extract_items(content);
         assert_eq!(
             items,
-            vec![Item { identifier: Ident::new("md", Span::call_site()), content: " \n # title \n ".to_string(), is_md: true }]
+            vec![Item { content: " \n # title \n ".to_string(), content_type: ItemType::Md }]
         );
     }
     #[test]
     fn test_parse_multiple(){
-        let content = "md {{}} div {{}}";
+        let content = "md {{}} rsx {{}}";
         let items = extract_items(content);
         assert_eq!(
             items,
             vec![
-            Item { identifier: Ident::new("md", Span::call_site()), content: "".to_string(), is_md: true},
-            Item { identifier: Ident::new("div", Span::call_site()), content: "".to_string(), is_md: false},
+            Item { content: "".to_string(), content_type: ItemType::Md},
+            Item { content: "".to_string(), content_type: ItemType::Rsx},
             ]
         );
     }
@@ -615,12 +615,13 @@ mod tests {
     fn test_macro(){
         let content = r#"
         md {{ stuff }}
-        div {{}}
-
-        Link {{
-            to: Route::PerfectClearPage { },
-            "Go to Page"
+        rsx {{
+            Link {
+                to: Route::PerfectClearPage { },
+                "Go to Page"
+            }
         }}
+
 
         ";
         "#;
