@@ -8,7 +8,6 @@ This work is an experimental macro that allows you to use markdown and rsx synta
 Inside your main rust file (`src/main.rs`), use:
 ```rust
 use dioxus::prelude::*;
-use dioxus_markdown_macro::md_page;
 
 fn main() {
     launch(App);
@@ -22,12 +21,12 @@ fn Greet(name: String) -> Element {
 }
 
 pub fn App() -> Element {
-    md_page!("demo.md")
+    include!("pages/demo.rs")
 }
 
 ```
 
-And inside `src/demo.md`:
+And inside `src/pages/demo.md`:
 
 ```md
 # I like markdown

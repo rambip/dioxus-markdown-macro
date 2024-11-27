@@ -1,34 +1,60 @@
 use std::{iter::Peekable, vec};
 use regex::Regex;
 
-use dioxus_rsx::{BodyNode, TemplateBody, RsxBlock};
+use dioxus_rsx::{CallBody, BodyNode, TemplateBody, RsxBlock};
 use pulldown_cmark::{Alignment, Event, Options, Parser, Tag};
 use quote::quote;
 use syn::{
     Ident,
     __private::Span,
-    parse_macro_input, parse_quote, parse_str, LitStr, 
+    parse_quote, parse_str,
+    parse::ParseBuffer,
+    parse::Parse,
 };
 
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
 
-use proc_macro::TokenStream;
-use std::{fs, path::PathBuf};
 
-#[proc_macro]
-pub fn md_page(input: TokenStream) -> TokenStream {
-    let file_path = parse_macro_input!(input as LitStr);
+//#[proc_macro]
+//pub fn md_page(input: TokenStream) -> TokenStream {
+//    let file_path = parse_macro_input!(input as LitStr);
+//
+//    // Get the manifest directory of the crate using the macro
+//    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
+//
+//    // Combine with the provided path
+//    let full_path = PathBuf::from(manifest_dir)
+//        .join("src")
+//        .join(file_path.value());
+//
+//    let content = fs::read_to_string(full_path).unwrap();
+//    let items = extract_items(&content);
+//
+//    let children: Vec<BodyNode> = items
+//        .into_iter()
+//        .flat_map(|x| x.to_body_nodes())
+//        .collect();
+//
+//    let template_body = TemplateBody::new(children);
+//
+//
+//    quote!(
+//        #template_body
+//    ).into()
+//}
 
-    // Get the manifest directory of the crate using the macro
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
+struct RsxBlockInner(RsxBlock);
 
-    // Combine with the provided path
-    let full_path = PathBuf::from(manifest_dir)
-        .join("src")
-        .join(file_path.value());
+impl Parse for RsxBlockInner {
+    fn parse(input: &ParseBuffer) -> syn::Result<Self> {
+        Ok(
+            Self(RsxBlock::parse_children(input)?)
+        )
+    }
+}
 
-    let content = fs::read_to_string(full_path).unwrap();
+pub fn parse(content: &str) -> CallBody {
     let items = extract_items(&content);
 
     let children: Vec<BodyNode> = items
@@ -37,11 +63,8 @@ pub fn md_page(input: TokenStream) -> TokenStream {
         .collect();
 
     let template_body = TemplateBody::new(children);
+    CallBody::new(template_body)
 
-
-    quote!(
-        #template_body
-    ).into()
 }
 
 fn extract_items(text: &str) -> Vec<Item> {
@@ -110,9 +133,8 @@ impl Item {
                 parse_md(&self.content).expect("malformed md")
             }
             ItemType::Rsx => {
-                let tokens: TokenStream = &self.content.parse().expect("invalid bracketing");
-                let block = parse_macro_input!(tokens with RsxBlock::parse_children).expect("malformed rsx");
-                block.children
+                let block: RsxBlockInner = parse_str(&self.content).expect("unable to parse rust content");
+                block.0.children
             }
         }
 

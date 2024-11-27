@@ -303,6 +303,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "dioxus-autofmt"
+version = "0.6.0-alpha.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a575c84cb83fa193ae13df0990245ad280d1162de92c437e8cdee037c538c532"
+dependencies = [
+ "dioxus-rsx",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn",
+]
+
+[[package]]
 name = "dioxus-cli-config"
 version = "0.6.0-alpha.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1189,19 +1203,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "markdown-macro"
-version = "0.1.0"
-dependencies = [
- "dioxus-rsx",
- "proc-macro2",
- "pulldown-cmark",
- "quote",
- "regex",
- "syn",
- "syntect",
-]
-
-[[package]]
 name = "memchr"
 version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1221,8 +1222,9 @@ name = "new"
 version = "0.1.0"
 dependencies = [
  "dioxus",
+ "dioxus-autofmt",
  "dioxus-logger",
- "markdown-macro",
+ "parse-markdown",
  "wasm-bindgen",
 ]
 
@@ -1290,6 +1292,19 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "windows-targets",
+]
+
+[[package]]
+name = "parse-markdown"
+version = "0.1.0"
+dependencies = [
+ "dioxus-rsx",
+ "proc-macro2",
+ "pulldown-cmark",
+ "quote",
+ "regex",
+ "syn",
+ "syntect",
 ]
 
 [[package]]
@@ -1362,6 +1377,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77957b295656769bb8ad2b6a6b09d897d94f05c41b069aede1fcdaa675eaea04"
 dependencies = [
  "zerocopy",
+]
+
+[[package]]
+name = "prettyplease"
+version = "0.2.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64d1ec885c64d0457d564db4ec299b2dae3f9c02808b8ad9c3a089c591b18033"
+dependencies = [
+ "proc-macro2",
+ "syn",
 ]
 
 [[package]]

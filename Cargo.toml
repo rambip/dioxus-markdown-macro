@@ -16,8 +16,10 @@ wasm-bindgen="=0.2.95"
 dioxus-logger = "0.5"
 
 
-dioxus-markdown-macro = {path = "markdown-macro"}
-
 
 [workspace]
-members = [".", "markdown-macro"]
+members = [".", "parse-markdown"]
+
+[build-dependencies]
+parse-markdown = {path = "parse-markdown"}
+dioxus-autofmt = "0.6.0-alpha.5"

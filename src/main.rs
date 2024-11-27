@@ -3,8 +3,6 @@
 use dioxus::prelude::*;
 use dioxus_logger::tracing::{info, Level};
 
-use markdown_macro::md_page;
-
 mod perfect_clear;
 use perfect_clear::PerfectClear;
 
@@ -50,5 +48,5 @@ fn Greet(name: String) -> Element {
 
 #[component]
 fn Home() -> Element {
-    md_page!("hello.md")
+    include!("pages/hello.rs")
 }
